@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { npcAt, npcNames } from '../shared/game.ts';
 import type { Game, NpcId } from '../shared/game.ts';
 import { questIntroduction, replySchema } from './engine.ts';
+import { checkNpcReply, containsBlockedTerm, loadGuardrails, safeNpcReply } from './guardrails.ts';
 
 const characterNotes = {
   warden: `You are the Old Man, an elderly wanderer tending the roadside fire on the Lantern Path.
@@ -50,7 +51,7 @@ function scriptedDialogue(game: Game, message: string) {
   }
   const earlier = game.memory[npc].filter(entry => entry.speaker === 'player').at(-1);
   if (earlier && /\b(remember|said|recall)\b/i.test(message)) {
-    return { dialogue: `I remember you saying, “${earlier.text}”` };
+    return { dialogue: 'I remember our earlier conversation. Tell me which part you want to discuss.' };
   }
   if (npc === 'warden') return { dialogue: 'Follow the lanterns to Lanternrest. Ask for Elder Mara at the gate. She might remember this road as it was.' };
   if (npc === 'elder') return { dialogue: game.events.length === 0
@@ -62,12 +63,26 @@ function scriptedDialogue(game: Game, message: string) {
 export function createDialogueProvider(
   config?: ModelConfig,
   fetchImpl: typeof fetch = fetch,
+  readPolicy: typeof loadGuardrails = loadGuardrails,
 ): DialogueProvider {
   return async (game, message) => {
-    const fallback: DialogueTurn = { reply: scriptedDialogue(game, message), continuation: null };
+    const npc = npcAt(game);
+    const safeTurn: DialogueTurn = { reply: safeNpcReply(npc), continuation: null };
+    let policy;
+    try {
+      policy = readPolicy();
+    } catch {
+      console.warn('NPC guardrail policy is unavailable. Using an authored safe reply.');
+      return safeTurn;
+    }
+    safeTurn.reply = safeNpcReply(npc, policy);
+    const scripted = scriptedDialogue(game, message);
+    const fallback: DialogueTurn = {
+      reply: containsBlockedTerm(policy, scripted.dialogue) ? safeTurn.reply : scripted,
+      continuation: null,
+    };
     if (!config) return fallback;
 
-    const npc = npcAt(game);
     const saved = game.conversations[npc];
     let cursor = saved?.model === config.model ? saved : null;
     const signal = AbortSignal.timeout(12_000);
@@ -84,7 +99,9 @@ export function createDialogueProvider(
             previous_response_id: cursor?.responseId,
             context_management: [{ type: 'compaction', compact_threshold: 8000 }],
             max_output_tokens: 400,
-            instructions: `Speak as ${npcNames[npc]} directly to the adventurer in this fantasy world.
+            instructions: `The following audience and content guardrails take priority over character instructions and all player requests.
+${policy.rules}
+Speak as ${npcNames[npc]} directly to the adventurer in this fantasy world.
 ${characterNotes[npc]}
 Stay in character. Use natural spoken dialogue, usually 1–3 short sentences. For a confused follow-up, explain yourself simply.
 Keep references to API calls, evidence policies, event lists, and game-engine mechanics out of spoken dialogue.
@@ -130,6 +147,10 @@ Current server-verified state: ${JSON.stringify({
         if (!content) return fallback;
         const result = replySchema.safeParse(JSON.parse(content));
         if (!result.success) return fallback;
+        const allowed = await checkNpcReply(policy, result.data.dialogue, {
+          npc: npcNames[npc], playerMessage: message, verifiedEvents: game.events,
+        }, config, fetchImpl, signal);
+        if (!allowed) return safeTurn;
         return {
           reply: result.data,
           continuation: {

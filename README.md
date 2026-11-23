@@ -62,6 +62,24 @@ remain available for recovery.
 
 [OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses)
 
+### NPC guardrails
+
+Edit `guardrail.md` to change the content rules. All NPCs use a minor-safe
+audience, including players with unknown ages. Add numbered rules in its Rules section
+and add words or phrases to `blockedTerms` in the Runtime settings JSON. Changes take
+effect on the next talk request without restarting the server.
+
+The server places the policy ahead of character instructions, checks generated dialogue
+against the blocked-term list, and requests an independent structured safety verdict from
+the configured model. Approved dialogue continues through the normal game rules.
+A blocked reply or failed safety check returns an authored, in-character redirection with
+no model-proposed action and clears the remote cursor. Scripted recall uses authored text
+instead of quoting player messages. Original player messages remain in the local transcript.
+
+The independent check adds one Responses API call for generated replies that pass the local
+term filter. It shares the existing 12-second request deadline. No live model is needed for
+scripted fallback. Keep regression cases for new rules because model-based judgments can fail.
+
 ## Checks and class repository
 
 Run `npm test`, `npm run typecheck`, and `npm run build`. The model adapter tests use local

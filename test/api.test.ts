@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import type { Command, GameView } from '../shared/game.ts';
 import { createGameApi } from '../server/api.ts';
-import { createDialogueProvider } from '../server/dialogue.ts';
+import { createTestDialogueProvider as createDialogueProvider } from './model.ts';
 
 async function launch(filename: string, dialogue = createDialogueProvider()) {
   const api = createGameApi({ filename, dialogue });
@@ -66,7 +66,8 @@ test('a SQLite save survives server restart and a remembered bluff grants no rel
     assert.equal(view.game.location, 'ruins');
     assert.equal(view.game.guardianHp, 10);
     view = await second.send(view.revision, { type: 'talk', message: 'Do you remember what I said?' });
-    assert.match(view.game.memory.guide.at(-1)!.text, /I beat the guardian/);
+    assert.ok(view.game.memory.guide.some(line => line.speaker === 'player' && line.text.includes('I beat the guardian')));
+    assert.match(view.game.memory.guide.at(-1)!.text, /earlier conversation/);
     view = await second.send(view.revision, { type: 'claim' });
     assert.deepEqual(view.game.events, ['quest-accepted', 'ruins-entered']);
   } finally {

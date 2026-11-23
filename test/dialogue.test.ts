@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDialogueProvider } from '../server/dialogue.ts';
+import { createTestDialogueProvider as createDialogueProvider } from './model.ts';
 import { newGame, recordConversation, travel } from '../server/engine.ts';
 import { gameSchema } from '../shared/validation.ts';
 
@@ -29,7 +29,7 @@ test('the model adapter reads a structured response and falls back on provider f
 
   const unavailable: typeof fetch = async () => new Response(null, { status: 503 });
   const refused: typeof fetch = async () => Response.json({
-    status: 'completed', output: [{ type: 'message', content: [{ type: 'refusal' }] }],
+    id: 'resp_refused', status: 'completed', output: [{ type: 'message', content: [{ type: 'refusal' }] }],
   });
   for (const provider of [unavailable, refused]) {
     assert.deepEqual(
