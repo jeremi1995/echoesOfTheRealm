@@ -1,16 +1,19 @@
 import { z } from 'zod';
 import { canTravel, guardianMaxHp, npcAt, playerMaxHp, questPhase } from '../shared/game.ts';
-import type { Command, Game, Location } from '../shared/game.ts';
+import type { Command, Game, Location, NpcId } from '../shared/game.ts';
 
 export const replySchema = z.strictObject({
   dialogue: z.string().trim().min(1).max(500),
   action: z.enum(['CLAIM_RELIC', 'NONE']).optional(),
 });
 
+export const questIntroduction = 'An amber light has returned to the old ruins. Find Rowan there and recover the Amber Relic before the seal fails.';
+
 export function newGame(): Game {
   return {
     location: 'forest', playerHp: playerMaxHp, guardianHp: guardianMaxHp, braced: false,
     events: [], memory: { warden: [], elder: [], guide: [] },
+    conversations: { warden: null, elder: null, guide: null },
     narration: 'You reach the lantern road just before nightfall. An old man tends a roadside fire, his face half hidden beneath a hood.',
   };
 }
@@ -79,23 +82,35 @@ export function startsQuestHere(game: Game) {
   return npcAt(game) === 'elder' && questPhase(game) === 0;
 }
 
-export function recordConversation(game: Game, message: string, proposedReply: unknown): Game {
+export function recordConversation(
+  game: Game,
+  message: string,
+  proposedReply: unknown,
+  continuation: Game['conversations'][NpcId] = null,
+): Game {
   const npc = npcAt(game);
-  const result = startsQuestHere(game)
-    ? {
-        game: { ...game, events: ['quest-accepted'] as Game['events'], narration: 'Quest begun: The Amber Relic.' },
-        dialogue: 'An amber light has returned to the old ruins. Find Rowan there and recover the Amber Relic before the seal fails.',
-      }
-    : applyNpcResponse(game, proposedReply);
+  const proposed = replySchema.safeParse(proposedReply);
+  const beginsQuest = startsQuestHere(game);
+  const next: Game = beginsQuest
+    ? { ...game, events: ['quest-accepted'], narration: 'Quest begun: The Amber Relic.' }
+    : game;
+  const result = beginsQuest && !proposed.success
+    ? { game: next, dialogue: questIntroduction }
+    : applyNpcResponse(next, proposedReply);
   return {
     ...result.game,
+    conversations: {
+      ...game.conversations,
+      // A corrected reply must be replayed from the transcript the player actually saw.
+      [npc]: proposed.success && proposed.data.dialogue === result.dialogue ? continuation : null,
+    },
     memory: {
       ...game.memory,
       [npc]: [
         ...game.memory[npc],
         { speaker: 'player', text: message },
         { speaker: 'npc', text: result.dialogue },
-      ].slice(-24),
+      ],
     },
   };
 }

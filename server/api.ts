@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { commandSchema } from '../shared/validation.ts';
 import type { GameView } from '../shared/game.ts';
 import { createDialogueProvider } from './dialogue.ts';
-import { applyMove, newGame, recordConversation, startsQuestHere, travel } from './engine.ts';
+import { applyMove, newGame, recordConversation, travel } from './engine.ts';
 import { openSave } from './save.ts';
 
 const requestSchema = z.object({ revision: z.uuid(), command: commandSchema });
@@ -93,8 +93,8 @@ export function createGameApi({
         }
         game = { ...saved, narration: 'Game loaded.' };
       } else if (command.type === 'talk') {
-        const reply = startsQuestHere(game) ? undefined : await dialogue(game, command.message);
-        game = recordConversation(game, command.message, reply);
+        const turn = await dialogue(game, command.message);
+        game = recordConversation(game, command.message, turn.reply, turn.continuation);
       } else if (command.type === 'travel') {
         game = travel(game, command.destination);
       } else {

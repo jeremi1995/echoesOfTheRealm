@@ -7,6 +7,12 @@ const line = z.object({
   text: z.string().trim().min(1).max(500),
 });
 
+const conversation = z.object({
+  responseId: z.string().regex(/^resp_[A-Za-z0-9_-]+$/),
+  model: z.string().min(1).max(200),
+  messageCount: z.number().int().nonnegative(),
+});
+
 export const gameSchema = z.object({
   location: z.enum(locations),
   playerHp: z.number().int().min(0).max(playerMaxHp),
@@ -14,10 +20,15 @@ export const gameSchema = z.object({
   braced: z.boolean(),
   events: z.array(z.enum(eventOrder)).max(eventOrder.length),
   memory: z.object({
-    warden: z.array(line).max(24).default([]),
-    elder: z.array(line).max(24),
-    guide: z.array(line).max(24),
+    warden: z.array(line).default([]),
+    elder: z.array(line),
+    guide: z.array(line),
   }),
+  conversations: z.object({
+    warden: conversation.nullable(),
+    elder: conversation.nullable(),
+    guide: conversation.nullable(),
+  }).default({ warden: null, elder: null, guide: null }),
   narration: z.string().max(500),
 }).refine(game => {
   const step = game.events.length;
@@ -26,7 +37,9 @@ export const gameSchema = z.object({
     && (step >= 3 ? game.guardianHp === 0 : game.guardianHp > 0)
     && (step >= 2 || (game.guardianHp === guardianMaxHp && game.playerHp === playerMaxHp))
     && (game.playerHp > 0 || (step === 2 && game.location === 'ruins'))
-    && (!game.braced || (step === 2 && game.location === 'ruins' && game.playerHp > 0));
+    && (!game.braced || (step === 2 && game.location === 'ruins' && game.playerHp > 0))
+    && Object.entries(game.conversations).every(([npc, cursor]) =>
+      cursor === null || cursor.messageCount <= game.memory[npc as keyof typeof game.memory].length);
 });
 export type Game = z.infer<typeof gameSchema>;
 

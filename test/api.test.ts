@@ -8,9 +8,10 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import type { Command, GameView } from '../shared/game.ts';
 import { createGameApi } from '../server/api.ts';
+import { createDialogueProvider } from '../server/dialogue.ts';
 
-async function launch(filename: string) {
-  const api = createGameApi({ filename });
+async function launch(filename: string, dialogue = createDialogueProvider()) {
+  const api = createGameApi({ filename, dialogue });
   const server = createServer((req, res) => { void api.handle(req, res); });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -70,6 +71,88 @@ test('a SQLite save survives server restart and a remembered bluff grants no rel
     assert.deepEqual(view.game.events, ['quest-accepted', 'ruins-entered']);
   } finally {
     await second.close();
+  }
+});
+
+test('full transcripts and per-NPC response cursors survive restart and loading an older save', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'echoes-chains-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const filename = join(directory, 'save.sqlite');
+  const parents: (string | undefined)[] = [];
+  const provider = createDialogueProvider({ apiKey: 'test', model: 'test-model' }, async (_url, options) => {
+    const body = JSON.parse(String(options?.body));
+    parents.push(body.previous_response_id);
+    return Response.json({ id: `resp_${parents.length}`, status: 'completed', output: [
+      { type: 'message', content: [{ type: 'output_text', text: '{"dialogue":"Welcome.","action":"NONE"}' }] },
+    ] });
+  });
+  const first = await launch(filename, provider);
+  try {
+    let view = await first.view();
+    for (let i = 0; i < 15; i++) view = await first.send(view.revision, { type: 'talk', message: `My detail ${i}` });
+    assert.equal(view.game.memory.warden.length, 30);
+    assert.equal(view.game.memory.warden[0].text, 'My detail 0');
+    await first.send(view.revision, { type: 'save' });
+  } finally {
+    await first.close();
+  }
+  const second = await launch(filename, provider);
+  try {
+    let view = await second.view();
+    view = await second.send(view.revision, { type: 'load' });
+    assert.equal(view.game.memory.warden.length, 30);
+    assert.equal(view.game.conversations.warden?.responseId, 'resp_15');
+    view = await second.send(view.revision, { type: 'talk', message: 'After the save.' });
+    assert.equal(parents.at(-1), 'resp_15');
+    view = await second.send(view.revision, { type: 'load' });
+    view = await second.send(view.revision, { type: 'talk', message: 'A different future.' });
+    assert.equal(parents.at(-1), 'resp_15');
+    assert.equal(view.game.memory.warden.some(line => line.text === 'After the save.'), false);
+    view = await second.send(view.revision, { type: 'restart' });
+    assert.deepEqual(view.game.conversations, { warden: null, elder: null, guide: null });
+    assert.deepEqual(view.game.memory, { warden: [], elder: [], guide: [] });
+  } finally {
+    await second.close();
+  }
+});
+
+test('Mara answers the first question through AI and retains her story context on a confused follow-up', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'echoes-mara-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  let calls = 0;
+  const provider = createDialogueProvider({ apiKey: 'test', model: 'test-model' }, async (_url, options) => {
+    const request = JSON.parse(String(options?.body));
+    calls++;
+    assert.match(request.instructions, /protective, practical elder of Lanternrest/);
+    assert.match(request.instructions, /Rowan is the warrior waiting at the ruins' entrance/);
+    assert.match(request.instructions, /An absent event does not erase places, people/);
+    assert.match(request.instructions, /explain yourself simply/);
+    assert.equal(request.input.at(-1).content, calls === 1 ? 'Travel after dark? What for?' : 'huh?');
+    assert.equal(request.previous_response_id, calls === 1 ? undefined : 'resp_mara_1');
+    return Response.json({ id: `resp_mara_${calls}`, status: 'completed', output: [
+      { type: 'message', content: [{ type: 'output_text', text: JSON.stringify({
+        dialogue: calls === 1
+          ? 'The amber light has returned tonight. I need you to find Rowan at the ruins before the seal fails.'
+          : 'Go to the old ruins and speak to Rowan. He will help you recover the Amber Relic.',
+        action: 'NONE',
+      }) }] },
+    ] });
+  });
+  const api = await launch(join(directory, 'save.sqlite'), provider);
+  try {
+    let view = await api.view();
+    view = await api.send(view.revision, { type: 'travel', destination: 'village' });
+    view = await api.send(view.revision, { type: 'talk', message: 'Travel after dark? What for?' });
+    assert.equal(calls, 1);
+    assert.match(view.game.memory.elder.at(-1)!.text, /returned tonight/);
+    assert.deepEqual(view.game.events, ['quest-accepted']);
+    view = await api.send(view.revision, { type: 'talk', message: 'huh?' });
+    assert.equal(calls, 2);
+    assert.match(view.game.memory.elder.at(-1)!.text, /Go to the old ruins/);
+    assert.deepEqual(view.game.events, ['quest-accepted']);
+    assert.equal(view.game.guardianHp, 10);
+  } finally {
+    await api.close();
   }
 });
 

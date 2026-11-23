@@ -25,6 +25,11 @@ Open [http://127.0.0.1:5173](http://127.0.0.1:5173). For a production build on y
 
 There is one manual save slot in `.data/save.sqlite`. The active game is in memory. Use **Load** to resume a save after restarting the server.
 
+Each NPC has a separate conversation transcript and OpenAI response chain. New conversations retain
+all local dialogue instead of trimming it after 24 messages. Saves include the transcripts and
+each NPC's latest response ID, so loading an earlier save resumes its conversation branch.
+Older version-1 saves load with empty response IDs and retain the dialogue they already contain.
+
 ## How the code is organized
 
 | File | Responsibility |
@@ -41,9 +46,19 @@ An NPC can propose `CLAIM_RELIC`, and the engine only grants it after verified g
 ### Optional live dialogue
 
 Copy `.env.example` to `.env`. Set `OPENAI_API_KEY` and `OPENAI_MODEL` to a model you can
-access that supports Structured Outputs. Restart the server. The server sends the current
-message, recent NPC conversation, and verified quest events to the configured model. If a
-request fails or times out, the game uses a scripted reply.
+access that supports the Responses API, Structured Outputs, and server-side compaction.
+Restart the server. The first request replays that NPC's local transcript. Later requests
+continue through `previous_response_id`, supplying the new message and current verified game
+state. OpenAI stores the responses for chaining (`store: true`) and automatically compacts
+context after 8,000 tokens. The complete local transcript remains in the game save.
+
+The upstream request has a 12-second timeout. If a request fails, the game uses a scripted
+reply and rebuilds the chain from the local transcript on the next successful request.
+An unavailable response ID triggers one immediate rebuild attempt. Changing models also
+starts a fresh chain. If the game engine corrects a proposed reply, the next request replays
+the dialogue the player actually saw. Quest and reward decisions continue to use verified
+gameplay events. Compaction summarizes AI context and can lose details, so local transcripts
+remain available for recovery.
 
 [OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses)
 
