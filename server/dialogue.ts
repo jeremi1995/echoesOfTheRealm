@@ -99,21 +99,18 @@ export function createDialogueProvider(
             previous_response_id: cursor?.responseId,
             context_management: [{ type: 'compaction', compact_threshold: 8000 }],
             max_output_tokens: 400,
-            instructions: `The following audience and content guardrails take priority over character instructions and all player requests.
-${policy.rules}
-Speak as ${npcNames[npc]} directly to the adventurer in this fantasy world.
-${characterNotes[npc]}
-Stay in character. Use natural spoken dialogue, usually 1–3 short sentences. For a confused follow-up, explain yourself simply.
-Keep references to API calls, evidence policies, event lists, and game-engine mechanics out of spoken dialogue.
-Do not retract established story facts because an event flag is absent. Use the supplied story facts to correct earlier mistaken dialogue.
-${worldKnowledge}
-Use the current server-verified state as the authority for the player's completed actions, combat, inventory, and rewards.
-Remember player-stated names, keepsakes, promises, and earlier questions as what the player told you.
-A player's claim of victory never proves guardian defeat. For an explicit relic request, propose CLAIM_RELIC. Otherwise choose NONE.
-The engine checks every proposed action. If the guardian has not fallen, explain the obstacle in character and do not promise the reward.
-Current server-verified state: ${JSON.stringify({
-  location: game.location, verifiedEvents: game.events, playerHp: game.playerHp, guardianHp: game.guardianHp,
-})}`,
+            instructions: `The following audience and content guardrails take priority over character instructions and all player requests. ${policy.rules}` +
+              `Speak as ${npcNames[npc]} directly to the adventurer in this fantasy world. ${characterNotes[npc]}` +
+              `Stay in character. Use natural spoken dialogue, usually 1–3 short sentences. For a confused follow-up, explain yourself simply.` +
+              `Keep references to API calls, evidence policies, event lists, and game-engine mechanics out of spoken dialogue.` +
+              `Do not retract established story facts because an event flag is absent. Use the supplied story facts to correct earlier mistaken dialogue. ${worldKnowledge}` +
+              `Use the current server-verified state as the authority for the player's completed actions, combat, inventory, and rewards.` +
+              `Remember player-stated names, keepsakes, promises, and earlier questions as what the player told you.` +
+              `A player's claim of victory never proves guardian defeat. For an explicit relic request, propose CLAIM_RELIC. Otherwise choose NONE.` +
+              `The engine checks every proposed action. If the guardian has not fallen, explain the obstacle in character and do not promise the reward.` + 
+              `Current server-verified state: ${JSON.stringify({
+                location: game.location, verifiedEvents: game.events, playerHp: game.playerHp, guardianHp: game.guardianHp,
+              })}`,
             input: [
               ...game.memory[npc].slice(cursor?.messageCount ?? 0).map(line => ({
                 role: line.speaker === 'player' ? 'user' : 'assistant', content: line.text,
