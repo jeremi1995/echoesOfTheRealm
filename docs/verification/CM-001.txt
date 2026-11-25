@@ -1,0 +1,76 @@
+CM-001 branch verification
+Branch: chore/configuration-management-baseline
+Baseline: d2a70cc43504ce7bc315f9f87050f7996615d033
+Environment: Windows; Node.js v24.12.0; npm 11.6.2
+Model tests use local doubles; no paid live API test was performed.
+
+Command: npm ci Started: 11/24/2026 17:08:29 Finished: 11/24/2026 17:08:36 Exit code: 0
+
+added 24 packages, and audited 25 packages in 6s
+
+6 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+npm notice
+npm notice New minor version of npm available! 11.6.2 -> 11.21.3
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.21.3
+npm notice To update run: npm install -g npm@11.21.3
+npm notice
+
+Command: npm test Started: 11/24/2026 17:08:36 Finished: 11/24/2026 17:08:38 Exit code: 0
+
+> echoes-of-the-realm@0.1.0 test
+> node --test test/*.test.ts
+
+(node:17776) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ a SQLite save survives server restart and a remembered bluff grants no relic (225.9331ms)
+✔ full transcripts and per-NPC response cursors survive restart and loading an older save (80.1614ms)
+✔ Mara answers the first question through AI and retains her story context on a confused follow-up (23.5274ms)
+✔ stale commands and invalid saved data leave the active game intact (42.0343ms)
+✔ the model adapter reads a structured response and falls back on provider failure (147.473ms)
+✔ NPCs have independent chains and stored compaction output continues through the response ID (51.1342ms)
+✔ transcripts exceed the old limit and fallback or missing response IDs rebuild all retained dialogue (15.7233ms)
+✔ model changes replay the local transcript and engine corrections invalidate the remote chain (2.363ms)
+✔ legacy saves gain empty cursors and impossible transcript offsets are rejected (0.7142ms)
+✔ travel opens after speaking to Mara and revisiting locations preserves quest progress (7.7729ms)
+✔ an NPC proposal cannot award the relic before verified victory (0.5143ms)
+✔ bracing creates an opening and a verified win unlocks the relic once (0.4858ms)
+✔ unguarded attacks can lose the fight and retry resets both health values (0.3002ms)
+✔ unsupported responses and dialogue alone leave quest progress unchanged (0.3279ms)
+✔ the policy catches profanity and common obfuscations without matching innocent substrings (122.4916ms)
+✔ a rejected generated reply cannot grant a relic, enter NPC memory, or retain its remote cursor (28.3563ms)
+✔ independent semantic rejection and checker failures use authored safe dialogue (11.5105ms)
+✔ policy edits apply on the next turn to both generation and validation (5.2084ms)
+✔ ordinary fantasy dialogue is approved and the new rule text also reaches the checker (0.8393ms)
+✔ missing policy fails closed and offline recall does not quote untrusted player text (2.7693ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 810.4996
+
+Command: npm run typecheck Started: 11/24/2026 17:08:38 Finished: 11/24/2026 17:08:41 Exit code: 0
+
+> echoes-of-the-realm@0.1.0 typecheck
+> tsc --noEmit
+
+
+Command: npm run build Started: 11/24/2026 17:08:41 Finished: 11/24/2026 17:08:43 Exit code: 0
+
+> echoes-of-the-realm@0.1.0 build
+> vite build
+
+vite v7.3.8 building client environment for production...
+transforming...
+✓ 29 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.45 kB │ gzip:  0.29 kB
+dist/assets/index-Bagy95Yh.css    6.68 kB │ gzip:  2.33 kB
+dist/assets/index-Pxu-fwRD.js   231.19 kB │ gzip: 72.29 kB
+✓ built in 813ms
