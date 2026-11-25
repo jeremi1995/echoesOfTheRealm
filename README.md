@@ -85,6 +85,9 @@ scripted fallback. Keep regression cases for new rules because model-based judgm
 Run `npm test`, `npm run typecheck`, and `npm run build`. The model adapter tests use local
 test responses and run without an API key.
 
-Start a feature branch in the instructor's class repo. Check its layout and existing workflow
-before integrating these files. Keep the lockfile and exclude `.env`, `.data/`, `node_modules/`,
-and `dist/`. Use Node.js 24 in CI and keep any existing class-required checks.
+The class repository is [jeremi1995/echoesOfTheRealm](https://github.com/jeremi1995/echoesOfTheRealm).
+Use the [configuration management procedure](docs/configuration-management.md) and
+record each change in `docs/changes/` before implementing it on a branch away from
+`master`. Merge after verification, then create an annotated release tag. The
+GitHub Actions workflow runs the same checks on pushes and pull requests using Node.js 24.
+Keep the lockfile and exclude `.env`, `.data/`, `node_modules/`, and `dist/`.
